@@ -154,6 +154,8 @@ static ngx_int_t
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_proxy_internal_chunked_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_proxy_cache_key_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_proxy_rewrite_redirect(ngx_http_request_t *r,
     ngx_table_elt_t *h, size_t prefix);
 static ngx_int_t ngx_http_proxy_rewrite_cookie(ngx_http_request_t *r,
@@ -834,6 +836,10 @@ static ngx_http_variable_t  ngx_http_proxy_vars[] = {
 
     { ngx_string("proxy_internal_chunked"), NULL,
       ngx_http_proxy_internal_chunked_variable, 0,
+      NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_NOHASH, 0 },
+
+    { ngx_string("proxy_cache_key"), NULL,
+      ngx_http_proxy_cache_key_variable, 0,
       NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_NOHASH, 0 },
 
       ngx_http_null_variable
@@ -2558,6 +2564,33 @@ ngx_http_proxy_internal_chunked_variable(ngx_http_request_t *r,
 
     v->data = (u_char *) "chunked";
     v->len = sizeof("chunked") - 1;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_proxy_cache_key_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_proxy_ctx_t  *ctx;
+    u_char                 example[NGX_HTTP_CACHE_KEY_LEN] = "0123456789abcdef";
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_proxy_module);
+
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    v->data = ngx_pnalloc(r->pool, NGX_HTTP_CACHE_KEY_LEN);
+    v->len = NGX_HTTP_CACHE_KEY_LEN;
+
+    ngx_memcpy(v->data, example, NGX_HTTP_CACHE_KEY_LEN);
 
     return NGX_OK;
 }
